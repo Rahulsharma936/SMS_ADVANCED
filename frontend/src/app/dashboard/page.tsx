@@ -54,7 +54,6 @@ const colorMap: Record<string, string> = {
   amber: 'hover:bg-amber-500/10 hover:border-amber-500/30 bg-amber-500/20 text-amber-400',
   orange: 'hover:bg-orange-500/10 hover:border-orange-500/30 bg-orange-500/20 text-orange-400',
   purple: 'hover:bg-purple-500/10 hover:border-purple-500/30 bg-purple-500/20 text-purple-400',
-  cyan: 'hover:bg-cyan-500/10 hover:border-cyan-500/30 bg-cyan-500/20 text-cyan-400',
   pink: 'hover:bg-pink-500/10 hover:border-pink-500/30 bg-pink-500/20 text-pink-400',
   rose: 'hover:bg-rose-500/10 hover:border-rose-500/30 bg-rose-500/20 text-rose-400',
   yellow: 'hover:bg-yellow-500/10 hover:border-yellow-500/30 bg-yellow-500/20 text-yellow-400',
