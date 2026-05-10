@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
 
 interface Student { id: string; firstName: string; lastName: string; admission_number: string; }
-interface FeeStructure { id: string; name: string; academic_year: string; currency: string; components: { amount: number; is_optional: boolean }[]; }
-interface FeeDiscount { id: string; name: string; type: string; value: number; }
+interface FeeStructure { id: string; name: string; academic_year: string; currency: string; is_active: boolean; components: { amount: number; is_optional: boolean }[]; }
+interface FeeDiscount { id: string; name: string; type: string; value: number; is_active: boolean; }
 interface StudentFee {
   id: string; status: string; total_amount: number; discount_amount: number; final_amount: number;
   assigned_at: string;
