@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, BACKEND_URL } from '@/lib/api';
 import Cookies from 'js-cookie';
 
 interface StudentData {
@@ -74,7 +74,7 @@ export default function StudentsPage() {
     const params = [];
     if (filterClassId) params.push(`class_id=${filterClassId}`);
     if (filterSectionId) params.push(`section_id=${filterSectionId}`);
-    window.open(`http://localhost:3001/api/students/export?${params.join('&')}`, '_blank');
+    window.open(`${BACKEND_URL}/api/students/export?${params.join('&')}`, '_blank');
   };
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>;

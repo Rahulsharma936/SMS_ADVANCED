@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+import { BACKEND_URL } from '@/lib/api';
 
 export default function ImportStudentsPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -23,7 +24,7 @@ export default function ImportStudentsPage() {
       const token = Cookies.get('token');
       const tenantId = Cookies.get('tenant_id');
 
-      const res = await fetch('http://localhost:3001/api/students/bulk-import', {
+      const res = await fetch(`${BACKEND_URL}/api/students/bulk-import`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
