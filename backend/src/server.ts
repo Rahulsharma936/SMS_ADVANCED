@@ -42,13 +42,39 @@ dotenv.config();
 const app  = express();
 const port = process.env.PORT || 3001;
 
+// ─── Allowed Origins (supports both local dev and production) ────────────────
+// Strip any path from FRONTEND_URL (CORS origin must be protocol+host+port only)
+const stripPath = (url: string) => {
+  try { const u = new URL(url); return u.origin; } catch { return url; }
+};
+
+const allowedOrigins: string[] = [
+  'http://localhost:3000',
+  ...(process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map(u => stripPath(u.trim()))
+    : []),
+];
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, origin || true);
+    } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
+  credentials: true,
+};
+
 // ─── HTTP Server (wraps Express for Socket.IO) ───────────────────────────────
 const httpServer = http.createServer(app);
 
 // ─── Socket.IO Server ────────────────────────────────────────────────────────
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin:      process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin:      allowedOrigins,
     methods:     ['GET', 'POST'],
     credentials: true,
   },
@@ -59,10 +85,7 @@ const io = new SocketIOServer(httpServer, {
 registerChatSocket(io);
 
 // ─── Express Middleware ───────────────────────────────────────────────────────
-app.use(cors({
-  origin:      process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve uploaded files
