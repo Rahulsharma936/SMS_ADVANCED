@@ -318,7 +318,7 @@ input, select, textarea {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   padding: var(--space-md) var(--space-sm) var(--space-xs);
 }
 
@@ -852,7 +852,7 @@ input, select, textarea {
 .sidebar-group-chevron {
   width: 12px;
   height: 12px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   transition: transform var(--transition-base);
   flex-shrink: 0;
 }
