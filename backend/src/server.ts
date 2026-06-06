@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
@@ -39,34 +40,18 @@ import { registerChatSocket } from './modules/chat/chat.socket';
 
 dotenv.config();
 
-const app  = express();
+const app = express();
 const port = process.env.PORT || 3001;
 
-// ─── Allowed Origins (supports both local dev and production) ────────────────
-// Strip any path from FRONTEND_URL (CORS origin must be protocol+host+port only)
-const stripPath = (url: string) => {
-  try { const u = new URL(url); return u.origin; } catch { return url; }
-};
-
-const allowedOrigins: string[] = [
+// ─── Allowed Origins (frontend URLs) ─────────────────────────────────────────
+const allowedOrigins = [
   'http://localhost:3000',
-  ...(process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',').map(u => stripPath(u.trim()))
-    : []),
+  'https://sms-advanced.vercel.app',
 ];
-
-const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin || true);
-    } else {
-      console.warn(`[CORS] Blocked origin: ${origin}`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  credentials: true,
-};
+// Also allow FRONTEND_URL env var if set on Render
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 
 // ─── HTTP Server (wraps Express for Socket.IO) ───────────────────────────────
 const httpServer = http.createServer(app);
@@ -74,8 +59,8 @@ const httpServer = http.createServer(app);
 // ─── Socket.IO Server ────────────────────────────────────────────────────────
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin:      allowedOrigins,
-    methods:     ['GET', 'POST'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
     credentials: true,
   },
   transports: ['websocket', 'polling'],
@@ -85,8 +70,12 @@ const io = new SocketIOServer(httpServer, {
 registerChatSocket(io);
 
 // ─── Express Middleware ───────────────────────────────────────────────────────
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 app.use(express.json());
+app.use(compression()); // P2A: gzip/brotli compression for all responses
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
