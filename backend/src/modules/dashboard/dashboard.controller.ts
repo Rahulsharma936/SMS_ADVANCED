@@ -63,10 +63,10 @@ export const getDashboardSummary = async (req: TenantRequest, res: Response) => 
       prisma.student.findMany({
         where: { tenant_id: tenantId, deletedAt: null },
         select: {
-          id: true, firstName: true, lastName: true, createdAt: true,
+          id: true, firstName: true, lastName: true, admissionDate: true,
           class: { select: { name: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { admissionDate: 'desc' },
         take: 5,
       }),
     ]);
