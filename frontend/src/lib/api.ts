@@ -1,7 +1,11 @@
 import Cookies from 'js-cookie';
 
-export const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const API_BASE_URL = BACKEND_URL + '/api';
+export function getBackendUrl() {
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+}
+
+// Keep for backward compatibility (used by students/import, students/export, useChat)
+export const BACKEND_URL = getBackendUrl();
 
 interface FetchOptions extends RequestInit {
   data?: any;
@@ -43,12 +47,14 @@ export const fetchApi = async (endpoint: string, options: FetchOptions = {}) => 
     config.body = JSON.stringify(options.data);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  const url = getBackendUrl() + '/api' + endpoint;
+  const response = await fetch(url, config);
   const data = await response.json();
 
   if (!response.ok) {
-    // If backend says unauthorized or tenant missing, redirect to login
-    if (response.status === 401 || data.error?.includes('tenant')) {
+    // ONLY destroy session on actual 401 Unauthorized (expired/invalid token)
+    // Do NOT nuke cookies for 400, 403, 404, 500 errors — those are normal API errors
+    if (response.status === 401) {
       Cookies.remove('token');
       Cookies.remove('tenant_id');
       if (typeof window !== 'undefined') {

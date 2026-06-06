@@ -35,3 +35,27 @@ export const getMe = async (req: TenantRequest, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+/* List all users in the current tenant (admin-facing) */
+export const getUsers = async (req: TenantRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId;
+
+    const users = await prisma.user.findMany({
+      where: { tenant_id: tenantId },
+      select: {
+        id: true,
+        email: true,
+        status: true,
+        createdAt: true,
+        role: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.status(200).json({ users, total: users.length });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

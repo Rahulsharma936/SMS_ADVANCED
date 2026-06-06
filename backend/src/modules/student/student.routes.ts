@@ -5,6 +5,7 @@ import {
   admitStudent, getStudents, getStudentById, updateStudent,
   deleteStudent, transferStudent, bulkPromote, bulkStatusUpdate,
   bulkImport, exportStudents, getStudentStats, uploadDocument,
+  getStudentAcademicRecords,
 } from './student.controller';
 import { tenantMiddleware } from '../../middlewares/tenant.middleware';
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -37,6 +38,7 @@ router.post('/bulk-status', rbacMiddleware(['Admin']), bulkStatusUpdate);
 // ─── CRUD ───
 router.post('/', rbacMiddleware(['Admin']), admitStudent);
 router.get('/', getStudents);
+router.get('/:id/academic-records', getStudentAcademicRecords);
 router.get('/:id', getStudentById);
 router.patch('/:id', rbacMiddleware(['Admin']), updateStudent);
 router.delete('/:id', rbacMiddleware(['Admin']), deleteStudent);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createTeacher,
   getTeachers,
+  getTeacherCount,
   getTeacherById,
   updateTeacher,
   assignClassTeacher,
@@ -18,6 +19,7 @@ router.use(tenantMiddleware, authMiddleware);
 
 // Teacher CRUD
 router.post('/', rbacMiddleware(['Admin']), createTeacher);
+router.get('/count', getTeacherCount); // P2A: lightweight count for dashboard
 router.get('/', getTeachers);
 router.get('/:id', getTeacherById);
 router.patch('/:id', rbacMiddleware(['Admin']), updateTeacher);

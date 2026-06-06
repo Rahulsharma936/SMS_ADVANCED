@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
+import AppLayout from '@/components/AppLayout';
 
 interface SubjectData { id: string; name: string; code: string | null; type: string; }
 
@@ -11,12 +13,15 @@ export default function SubjectsPage() {
   const [form, setForm] = useState({ name: '', code: '', type: 'core' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const router = useRouter();
 
   const load = async () => {
     try {
       const d = await fetchApi('/subjects');
       setSubjects(d.subjects);
-    } catch (e: any) { console.error(e); } finally { setLoading(false); }
+    } catch (e: any) {
+      if (e.message?.includes('Unauthorized')) router.push('/login');
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { load(); }, []);
@@ -30,62 +35,75 @@ export default function SubjectsPage() {
     } catch (err: any) { setError(err.message); }
   };
 
-  const inp = "w-full bg-black/30 border border-gray-700/50 rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500 transition-all";
-
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>;
+  if (loading) return <div className="page-loading"><div className="spinner spinner-lg" /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <nav className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <a href="/dashboard" className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">SMS Portal</a>
-          <div className="flex gap-4 text-sm">
-            <a href="/classes" className="text-gray-400 hover:text-white">Classes</a>
-            <a href="/students" className="text-gray-400 hover:text-white">Students</a>
-            <a href="/subjects" className="text-blue-400 font-medium">Subjects</a>
-            <a href="/syllabus" className="text-gray-400 hover:text-white">Syllabus</a>
-            <a href="/timetable" className="text-gray-400 hover:text-white">Timetable</a>
-            <a href="/calendar" className="text-gray-400 hover:text-white">Calendar</a>
-            <a href="/dashboard" className="text-gray-400 hover:text-white">Dashboard</a>
-          </div>
+    <AppLayout>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">
+            Subjects
+            <span style={{ fontFamily: 'var(--font-geist-mono)', fontSize: '13px', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', padding: '2px 8px', borderRadius: '100px' }}>
+              {subjects.length}
+            </span>
+          </h1>
+          <p className="page-subtitle">Manage the subjects taught in your school</p>
         </div>
-      </nav>
-      <main className="max-w-5xl mx-auto px-4 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Subjects <span className="text-gray-500 text-lg font-normal">({subjects.length})</span></h1>
-          <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium">+ New Subject</button>
-        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">+ New Subject</button>
+      </div>
 
-        {showForm && (
-          <form onSubmit={handleCreate} className="bg-white/5 border border-white/10 p-6 rounded-2xl mb-8 space-y-4">
-            {error && <div className="text-red-400 text-sm">{error}</div>}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input placeholder="Subject Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={inp} />
-              <input placeholder="Code (e.g. MATH101)" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} className={inp} />
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className={inp}>
-                <option value="core">Core</option><option value="elective">Elective</option>
+      {showForm && (
+        <form onSubmit={handleCreate} className="widget" style={{ marginBottom: '16px' }}>
+          <div className="widget-head">
+            <span className="widget-title">Create Subject</span>
+            <button type="button" onClick={() => setShowForm(false)} className="widget-link">Cancel</button>
+          </div>
+          <div style={{ padding: '16px', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            {error && <div className="alert alert-error" style={{ width: '100%' }}>{error}</div>}
+            <div style={{ flex: 1, minWidth: '160px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Subject Name</label>
+              <input placeholder="e.g. Mathematics" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required className="input" />
+            </div>
+            <div style={{ flex: 1, minWidth: '140px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Code</label>
+              <input placeholder="e.g. MATH101" value={form.code} onChange={e => setForm({ ...form, code: e.target.value })} className="input" />
+            </div>
+            <div style={{ minWidth: '120px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>Type</label>
+              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="input">
+                <option value="core">Core</option>
+                <option value="elective">Elective</option>
               </select>
             </div>
-            <button type="submit" className="px-6 py-2 bg-blue-600 rounded-lg text-sm font-medium">Create Subject</button>
-          </form>
-        )}
+            <button type="submit" className="btn btn-primary">Create</button>
+          </div>
+        </form>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {subjects.length === 0 ? (
-            <p className="text-gray-500 col-span-full text-center py-12">No subjects yet.</p>
-          ) : subjects.map((s) => (
-            <div key={s.id} className="bg-white/5 border border-white/10 rounded-xl p-5 hover:bg-white/8 transition-colors">
-              <div className="flex items-start justify-between">
+      {subjects.length === 0 ? (
+        <div className="empty-state" style={{ minHeight: '40vh' }}>
+          <svg className="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <p className="empty-state-title">No subjects added yet</p>
+          <p className="empty-state-desc">Subjects define what is taught. Add subjects first, then assign them to teachers and classes.</p>
+          <button onClick={() => setShowForm(true)} className="btn btn-primary">Add your first subject</button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }} className="animate-fade-in-up">
+          {subjects.map(s => (
+            <div key={s.id} className="widget" style={{ cursor: 'default' }}>
+              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <h3 className="font-semibold text-lg">{s.name}</h3>
-                  {s.code && <p className="text-gray-400 font-mono text-xs mt-0.5">{s.code}</p>}
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{s.name}</div>
+                  {s.code && <div style={{ fontSize: '11px', fontFamily: 'var(--font-geist-mono)', color: 'var(--text-muted)', marginTop: '2px' }}>{s.code}</div>}
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.type === 'core' ? 'bg-blue-500/20 text-blue-300' : 'bg-purple-500/20 text-purple-300'}`}>{s.type}</span>
+                <span className={`badge ${s.type === 'core' ? 'badge-blue' : 'badge-purple'}`} style={{ fontSize: '10px' }}>{s.type}</span>
               </div>
             </div>
           ))}
         </div>
-      </main>
-    </div>
+      )}
+    </AppLayout>
   );
 }

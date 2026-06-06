@@ -48,8 +48,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black flex items-center justify-center p-4">
-      <div className="bg-white/5 backdrop-blur-2xl border border-white/10 p-8 rounded-3xl shadow-2xl w-full max-w-md transition-all duration-500">
+    <div className="auth-page">
+      <div className="modal-box" style={{ maxWidth: '420px' }}>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
             {isLogin ? 'Welcome Back' : 'Create Account'}
@@ -68,33 +68,33 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-gray-300 text-xs font-semibold mb-1 uppercase tracking-wide">Tenant ID</label>
-            <input
+          <input
               type="text"
               value={tenantId}
               onChange={(e) => setTenantId(e.target.value)}
-              className="w-full bg-black/30 border border-gray-700/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+              className="input"
               placeholder="e.g. 123e4567-e89b-..."
               required
             />
           </div>
           <div>
             <label className="block text-gray-300 text-xs font-semibold mb-1 uppercase tracking-wide">Email</label>
-            <input
+          <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-black/30 border border-gray-700/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+              className="input"
               placeholder="admin@school.com"
               required
             />
           </div>
           <div>
             <label className="block text-gray-300 text-xs font-semibold mb-1 uppercase tracking-wide">Password</label>
-            <input
+          <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-black/30 border border-gray-700/50 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+              className="input"
               placeholder="••••••••"
               required
             />
@@ -118,7 +118,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-4 bg-white/10 hover:bg-white/20 text-white font-medium py-3 rounded-lg border border-white/20 transition-all duration-300 disabled:opacity-50"
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '10px 16px', justifyContent: 'center', marginTop: '8px' }}
           >
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Register')}
           </button>

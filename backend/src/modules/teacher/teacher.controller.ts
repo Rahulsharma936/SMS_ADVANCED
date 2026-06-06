@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { prisma } from '../../prisma/client';
 import { TenantRequest } from '../../middlewares/tenant.middleware';
 import * as teacherService from './teacher.service';
 
@@ -194,6 +195,18 @@ export const getTeacherWorkload = async (req: TenantRequest, res: Response) => {
       return;
     }
     console.error('Get teacher workload error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// ─── P2A: GET /teachers/count ─── (lightweight dashboard endpoint)
+
+export const getTeacherCount = async (req: TenantRequest, res: Response) => {
+  try {
+    const count = await prisma.teacher.count({ where: { tenant_id: req.tenantId! } });
+    res.status(200).json({ count });
+  } catch (error) {
+    console.error('Get teacher count error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };

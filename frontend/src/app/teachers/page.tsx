@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
+import AppLayout from '@/components/AppLayout';
 
 interface TeacherData {
   id: string;
@@ -61,59 +62,37 @@ export default function TeachersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="page-loading">
+        <div className="spinner spinner-lg" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <nav className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <a href="/dashboard" className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            SMS Portal
-          </a>
-          <div className="flex gap-4 text-sm">
-            <a href="/classes" className="text-gray-400 hover:text-white transition-colors">Classes</a>
-            <a href="/students" className="text-gray-400 hover:text-white transition-colors">Students</a>
-            <a href="/teachers" className="text-blue-400 font-medium">Teachers</a>
-            <a href="/subjects" className="text-gray-400 hover:text-white transition-colors">Subjects</a>
-            <a href="/attendance" className="text-gray-400 hover:text-white transition-colors">Attendance</a>
-            <a href="/timetable" className="text-gray-400 hover:text-white transition-colors">Timetable</a>
-            <a href="/dashboard" className="text-gray-400 hover:text-white transition-colors">Dashboard</a>
-          </div>
+    <AppLayout>
+      <div className="page-header animate-fade-in-up">
+        <div>
+          <h1 className="page-title">Teachers</h1>
+          <p className="page-subtitle">{teachers.length} teachers registered</p>
         </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8 animate-fade-in-up">
-          <div>
-            <h1 className="text-3xl font-bold">Teachers</h1>
-            <p className="text-gray-500 mt-1">{teachers.length} teachers registered</p>
-          </div>
-          <a
-            href="/teachers/add"
-            className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-sm font-medium shadow-lg hover:shadow-blue-500/25 transition-all hover:scale-105"
-          >
-            + Add Teacher
-          </a>
-        </div>
+        <a href="/teachers/add" className="btn btn-primary">+ Add Teacher</a>
+      </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-8 animate-fade-in-up delay-100">
+        <div className="filter-bar animate-fade-in-up delay-100">
           <input
             type="text"
             placeholder="Search name, employee ID, phone..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="bg-black/30 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 w-80 transition-colors"
+            className="input"
+            style={{ width: '280px' }}
           />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-black/30 border border-gray-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"
+            className="input"
+            style={{ width: 'auto' }}
           >
             <option value="">All Statuses</option>
             <option value="active">Active</option>
@@ -162,9 +141,9 @@ export default function TeachersPage() {
         </div>
 
         {/* Teacher Table */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden animate-fade-in-up delay-200">
+        <div className="data-table-wrap animate-fade-in-up delay-200">
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="data-table">
               <thead>
                 <tr className="border-b border-white/10">
                   <th className="px-5 py-4 text-xs text-gray-400 uppercase font-semibold">Employee ID</th>
@@ -179,11 +158,14 @@ export default function TeachersPage() {
               <tbody>
                 {teachers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center text-gray-500">
-                      <div className="flex flex-col items-center gap-3">
-                        <svg className="w-12 h-12 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        <p>No teachers found</p>
-                        <a href="/teachers/add" className="text-blue-400 hover:underline text-sm">Add your first teacher</a>
+                    <td colSpan={7}>
+                      <div className="empty-state">
+                        <svg className="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.25}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p className="empty-state-title">{search || statusFilter ? 'No teachers match your filters' : 'No teachers registered yet'}</p>
+                        <p className="empty-state-desc">{search || statusFilter ? 'Try adjusting your search or filter criteria.' : 'Register teachers to assign them to subjects and classes.'}</p>
+                        {!(search || statusFilter) && <a href="/teachers/add" className="btn btn-primary">Add your first teacher</a>}
                       </div>
                     </td>
                   </tr>
@@ -246,20 +228,6 @@ export default function TeachersPage() {
             </table>
           </div>
         </div>
-      </main>
-
-      <style jsx global>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.5s ease-out forwards;
-          opacity: 0;
-        }
-        .delay-100 { animation-delay: 100ms; }
-        .delay-200 { animation-delay: 200ms; }
-      `}</style>
-    </div>
+    </AppLayout>
   );
 }

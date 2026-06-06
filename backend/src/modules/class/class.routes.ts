@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createClass, getClasses, createSection, getSections } from './class.controller';
+import { createClass, getClasses, getClassCount, createSection, getSections } from './class.controller';
 import { tenantMiddleware } from '../../middlewares/tenant.middleware';
 import { authMiddleware } from '../../middlewares/auth.middleware';
 import { rbacMiddleware } from '../../middlewares/rbac.middleware';
@@ -11,6 +11,7 @@ router.use(tenantMiddleware, authMiddleware);
 
 // Classes
 router.post('/', rbacMiddleware(['Admin']), createClass);
+router.get('/count', getClassCount); // P2A: lightweight count for dashboard
 router.get('/', getClasses);
 
 // Sections

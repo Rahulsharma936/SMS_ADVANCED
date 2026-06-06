@@ -105,3 +105,15 @@ export const getSections = async (req: TenantRequest, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+// ─── P2A: GET /classes/count ─── (lightweight dashboard endpoint)
+
+export const getClassCount = async (req: TenantRequest, res: Response) => {
+  try {
+    const count = await prisma.class.count({ where: { tenant_id: req.tenantId! } });
+    res.status(200).json({ count });
+  } catch (error) {
+    console.error('Get class count error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

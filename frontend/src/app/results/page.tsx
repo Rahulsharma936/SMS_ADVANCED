@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
+import AppLayout from '@/components/AppLayout';
 
 interface ExamData { id: string; name: string; academic_year: string }
 interface ClassData { id: string; name: string; sections: { id: string; name: string }[] }
@@ -13,185 +14,231 @@ interface ResultEntry {
   resultSummary: { total_marks: string; max_total: string; percentage: string; grade: string | null; rank_section: number | null; is_pass: boolean } | null;
 }
 
+function FL({ c }: { c: string }) {
+  return <label style={{ display:'block', fontSize:'10px', fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase', color:'var(--text-faint)', marginBottom:'5px' }}>{c}</label>;
+}
+
+function PctBar({ pct }: { pct: number }) {
+  const color = pct >= 75 ? '#4ade80' : pct >= 33 ? '#fbbf24' : '#f87171';
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+      <div style={{ width:'52px', height:'4px', background:'var(--bg-overlay)', borderRadius:'2px', overflow:'hidden', flexShrink:0 }}>
+        <div style={{ width:`${Math.min(100,pct)}%`, height:'100%', background:color, borderRadius:'2px' }}/>
+      </div>
+      <span style={{ fontSize:'12px', fontWeight:600, color, minWidth:'36px', fontFamily:'var(--font-geist-mono)' }}>{pct}%</span>
+    </div>
+  );
+}
+
 function ResultsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const preExamId = searchParams.get('exam_id') || '';
+  const [exams,      setExams]      = useState<ExamData[]>([]);
+  const [classes,    setClasses]    = useState<ClassData[]>([]);
+  const [examId,     setExamId]     = useState(searchParams.get('exam_id')||'');
+  const [classId,    setClassId]    = useState('');
+  const [sectionId,  setSectionId]  = useState('');
+  const [results,    setResults]    = useState<ResultEntry[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [calculating,setCalculating]= useState(false);
+  const [error,      setError]      = useState('');
+  const [msg,        setMsg]        = useState('');
 
-  const [exams, setExams] = useState<ExamData[]>([]);
-  const [classes, setClasses] = useState<ClassData[]>([]);
-  const [examId, setExamId] = useState(preExamId);
-  const [classId, setClassId] = useState('');
-  const [sectionId, setSectionId] = useState('');
-  const [results, setResults] = useState<ResultEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [calculating, setCalculating] = useState(false);
-  const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
+  const selectedClass = classes.find(c=>c.id===classId);
 
-  const selectedExam = exams.find(e => e.id === examId);
-  const selectedClass = classes.find(c => c.id === classId);
-
-  useEffect(() => {
-    Promise.all([fetchApi('/exams'), fetchApi('/classes')])
-      .then(([ed, cd]) => { setExams(ed.exams); setClasses(cd.classes); })
-      .catch(e => { if (e.message?.includes('Unauthorized')) router.push('/login'); })
-      .finally(() => setLoading(false));
-  }, []);
+  useEffect(()=>{
+    Promise.all([fetchApi('/exams'),fetchApi('/classes')])
+      .then(([ed,cd])=>{ setExams(ed.exams); setClasses(cd.classes); })
+      .catch(e=>{ if(e.message?.includes('Unauthorized')) router.push('/login'); })
+      .finally(()=>setLoading(false));
+  },[router]);
 
   const loadResults = async () => {
-    if (!examId || !classId) return;
+    if (!examId||!classId) return;
     try {
       const url = sectionId ? `/exams/${examId}/results?class_id=${classId}&section_id=${sectionId}` : `/exams/${examId}/results?class_id=${classId}`;
       const data = await fetchApi(url);
       setResults(data.results);
     } catch (e: any) { setError(e.message); }
   };
-
-  useEffect(() => { loadResults(); }, [examId, classId, sectionId]);
+  useEffect(()=>{ loadResults(); },[examId,classId,sectionId]);
 
   const calculateResults = async () => {
-    if (!examId || !classId || !sectionId) { setError('Select exam, class, and section to calculate'); return; }
+    if (!examId||!classId||!sectionId) { setError('Select exam, class, and section to calculate'); return; }
     setCalculating(true); setError(''); setMsg('');
     try {
-      const res = await fetchApi(`/exams/${examId}/results/calculate`, { method: 'POST', data: { class_id: classId, section_id: sectionId } });
+      const res = await fetchApi(`/exams/${examId}/results/calculate`,{ method:'POST', data:{ class_id:classId, section_id:sectionId }});
       setMsg(`Results calculated for ${res.calculated} students`);
       loadResults();
-    } catch (e: any) { setError(e.message); } finally { setCalculating(false); }
+      setTimeout(()=>setMsg(''),5000);
+    } catch(e:any){ setError(e.message); } finally { setCalculating(false); }
   };
 
-  const passCount = results.filter(r => r.resultSummary?.is_pass).length;
-  const failCount = results.filter(r => r.resultSummary && !r.resultSummary.is_pass).length;
-  const pendingCount = results.filter(r => !r.resultSummary).length;
-  const avgPercent = results.length > 0 && results.some(r => r.resultSummary)
-    ? Math.round(results.filter(r => r.resultSummary).reduce((s, r) => s + Number(r.resultSummary!.percentage), 0) / results.filter(r => r.resultSummary).length) : 0;
+  const passCount    = results.filter(r=>r.resultSummary?.is_pass).length;
+  const failCount    = results.filter(r=>r.resultSummary&&!r.resultSummary.is_pass).length;
+  const pendingCount = results.filter(r=>!r.resultSummary).length;
+  const avgPercent   = results.length>0&&results.some(r=>r.resultSummary)
+    ? Math.round(results.filter(r=>r.resultSummary).reduce((s,r)=>s+Number(r.resultSummary!.percentage),0)/results.filter(r=>r.resultSummary).length) : 0;
 
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="page-loading"><div className="spinner spinner-lg"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <nav className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <a href="/dashboard" className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">SMS Portal</a>
-          <div className="flex gap-4 text-sm">
-            <a href="/exams" className="text-gray-400 hover:text-white transition-colors">Exams</a>
-            <a href="/marks-entry" className="text-gray-400 hover:text-white transition-colors">Marks Entry</a>
-            <a href="/results" className="text-blue-400 font-medium">Results</a>
-            <a href="/report-card" className="text-gray-400 hover:text-white transition-colors">Report Card</a>
+    <AppLayout>
+      <div className="page-header">
+        <div>
+          {/* Breadcrumb */}
+          <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'11px', color:'var(--text-muted)', marginBottom:'4px' }}>
+            <a href="/exams" style={{ color:'var(--text-muted)', textDecoration:'none' }}>
+              Examinations
+            </a>
+            <span style={{ color:'var(--text-faint)' }}>›</span>
+            <span>Results</span>
           </div>
+          <h1 className="page-title">Results</h1>
+          <p className="page-subtitle">Exam result summaries and grade reports</p>
         </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Results Dashboard</h1>
-          {examId && classId && sectionId && (
-            <button onClick={calculateResults} disabled={calculating} className="px-5 py-2.5 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl text-sm font-medium disabled:opacity-50 hover:shadow-lg transition-all">
-              {calculating ? 'Calculating...' : '⚡ Calculate Results'}
+        <div style={{ display:'flex', gap:'8px' }}>
+          <a href="/marks-entry" className="btn btn-secondary" style={{fontSize:'12px'}}>Marks Entry</a>
+          <a href="/report-card" className="btn btn-secondary" style={{fontSize:'12px'}}>Report Cards</a>
+          {examId&&classId&&sectionId && (
+            <button onClick={calculateResults} disabled={calculating} className="btn btn-primary" style={{fontSize:'12px'}}>
+              {calculating?<><div className="spinner" style={{width:'13px',height:'13px',borderWidth:'2px'}}/> Calculating…</>:<>⚡ Calculate Results</>}
             </button>
           )}
         </div>
+      </div>
 
-        {error && <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-xl mb-4 text-sm">{error}</div>}
-        {msg && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3 rounded-xl mb-4 text-sm">{msg}</div>}
+      {error && <div className="alert alert-error" style={{marginBottom:'12px'}}>{error}</div>}
+      {msg   && <div className="alert alert-success" style={{marginBottom:'12px'}}>{msg}</div>}
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Exam</label>
-            <select value={examId} onChange={e => setExamId(e.target.value)} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-52">
-              <option value="">Select</option>{exams.map(e => <option key={e.id} value={e.id}>{e.name} ({e.academic_year})</option>)}
-            </select></div>
-          <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Class</label>
-            <select value={classId} onChange={e => { setClassId(e.target.value); setSectionId(''); }} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-44">
-              <option value="">Select</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select></div>
-          {selectedClass && <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Section</label>
-            <select value={sectionId} onChange={e => setSectionId(e.target.value)} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-36">
-              <option value="">All Sections</option>{selectedClass.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select></div>}
+      {/* Filters */}
+      <div className="card" style={{padding:'14px 18px',marginBottom:'14px',display:'flex',flexWrap:'wrap',gap:'14px',alignItems:'flex-end'}}>
+        <div style={{minWidth:'200px'}}>
+          <FL c="Exam"/>
+          <select value={examId} onChange={e=>setExamId(e.target.value)} className="input" style={{width:'100%'}}>
+            <option value="">Select exam</option>
+            {exams.map(e=><option key={e.id} value={e.id}>{e.name} ({e.academic_year})</option>)}
+          </select>
         </div>
+        <div style={{minWidth:'140px'}}>
+          <FL c="Class"/>
+          <select value={classId} onChange={e=>{setClassId(e.target.value);setSectionId('');}} className="input" style={{width:'100%'}}>
+            <option value="">Select class</option>
+            {classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        {selectedClass && (
+          <div style={{minWidth:'120px'}}>
+            <FL c="Section"/>
+            <select value={sectionId} onChange={e=>setSectionId(e.target.value)} className="input" style={{width:'100%'}}>
+              <option value="">All Sections</option>
+              {selectedClass.sections.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
 
-        {results.length > 0 && (
-          <>
-            {/* Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center"><p className="text-2xl font-bold text-blue-400">{results.length}</p><p className="text-xs text-gray-500 uppercase mt-1">Total Students</p></div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center"><p className="text-2xl font-bold text-emerald-400">{passCount}</p><p className="text-xs text-gray-500 uppercase mt-1">Passed</p></div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center"><p className="text-2xl font-bold text-red-400">{failCount}</p><p className="text-xs text-gray-500 uppercase mt-1">Failed</p></div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center"><p className="text-2xl font-bold text-purple-400">{avgPercent}%</p><p className="text-xs text-gray-500 uppercase mt-1">Avg %</p></div>
+      {!examId && (
+        <div className="empty-state" style={{minHeight:'36vh'}}>
+          <svg className="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.25}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <p className="empty-state-title">Select an exam to view results</p>
+          <p className="empty-state-desc">Choose an exam and class above to load result summaries.</p>
+        </div>
+      )}
+
+      {examId&&classId&&results.length===0 && (
+        <div className="empty-state" style={{minHeight:'28vh'}}>
+          <p className="empty-state-title">No results yet</p>
+          <p className="empty-state-desc">Enter marks first, then use the Calculate Results button to generate results.</p>
+          <a href={`/marks-entry?exam_id=${examId}`} className="btn btn-secondary" style={{fontSize:'12px'}}>Go to Marks Entry →</a>
+        </div>
+      )}
+
+      {results.length>0 && (
+        <>
+          <div className="kpi-grid" style={{gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',marginBottom:'14px'}}>
+            {[
+              {label:'Total Students', value:results.length,  color:'#60a5fa'},
+              {label:'Passed',         value:passCount,        color:'#4ade80'},
+              {label:'Failed',         value:failCount,        color:'#f87171'},
+              {label:'Avg Score',      value:`${avgPercent}%`, color:avgPercent>=50?'#4ade80':'#fbbf24'},
+            ].map(c=>(
+              <div key={c.label} className="kpi-card">
+                <div className="kpi-card-value" style={{color:c.color}}>{c.value}</div>
+                <div className="kpi-card-label">{c.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {pendingCount>0 && (
+            <div className="alert alert-warning" style={{marginBottom:'12px'}}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.75} style={{flexShrink:0}}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+              <span><strong>{pendingCount} students</strong> have no results — click "Calculate Results" to process them.</span>
             </div>
+          )}
 
-            {/* Results Table */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-              <table className="w-full text-sm">
+          <div className="data-table-wrap">
+            <div style={{overflowX:'auto'}}>
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="px-5 py-4 text-left text-xs text-gray-400 uppercase">Rank</th>
-                    <th className="px-5 py-4 text-left text-xs text-gray-400 uppercase">Roll</th>
-                    <th className="px-5 py-4 text-left text-xs text-gray-400 uppercase">Name</th>
-                    <th className="px-5 py-4 text-center text-xs text-gray-400 uppercase">Marks</th>
-                    <th className="px-5 py-4 text-center text-xs text-gray-400 uppercase">%</th>
-                    <th className="px-5 py-4 text-center text-xs text-gray-400 uppercase">Grade</th>
-                    <th className="px-5 py-4 text-center text-xs text-gray-400 uppercase">Status</th>
-                    <th className="px-5 py-4 text-center text-xs text-gray-400 uppercase">Actions</th>
+                  <tr>
+                    <th style={{width:'52px'}}>Rank</th>
+                    <th style={{width:'72px'}}>Roll</th>
+                    <th>Student</th>
+                    <th style={{textAlign:'center'}}>Marks</th>
+                    <th style={{minWidth:'120px'}}>Score %</th>
+                    <th style={{textAlign:'center'}}>Grade</th>
+                    <th style={{textAlign:'center'}}>Status</th>
+                    <th style={{textAlign:'center',width:'90px'}}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map(r => (
-                    <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.04] transition-colors">
-                      <td className="px-5 py-3 text-amber-400 font-bold">{r.resultSummary?.rank_section ? `#${r.resultSummary.rank_section}` : '—'}</td>
-                      <td className="px-5 py-3 text-gray-400 font-mono text-xs">{r.student.roll_number || r.student.admission_number}</td>
-                      <td className="px-5 py-3 font-medium">{r.student.firstName} {r.student.lastName}</td>
-                      <td className="px-5 py-3 text-center">{r.resultSummary ? `${Number(r.resultSummary.total_marks)}/${Number(r.resultSummary.max_total)}` : '—'}</td>
-                      <td className="px-5 py-3 text-center">
-                        {r.resultSummary ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="w-12 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${Number(r.resultSummary.percentage) >= 33 ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ width: `${Math.min(100, Number(r.resultSummary.percentage))}%` }} />
-                            </div>
-                            <span className={Number(r.resultSummary.percentage) >= 33 ? 'text-emerald-400' : 'text-red-400'}>{Number(r.resultSummary.percentage)}%</span>
-                          </div>
-                        ) : '—'}
+                  {results.map(r=>(
+                    <tr key={r.id} style={{background:r.resultSummary&&!r.resultSummary.is_pass?'rgba(239,68,68,0.03)':undefined}}>
+                      <td style={{fontWeight:700,color:'#fbbf24',fontFamily:'var(--font-geist-mono)'}}>{r.resultSummary?.rank_section?`#${r.resultSummary.rank_section}`:'—'}</td>
+                      <td style={{fontFamily:'var(--font-geist-mono)',fontSize:'11px',color:'var(--text-faint)'}}>{r.student.roll_number||r.student.admission_number.slice(-5)}</td>
+                      <td style={{fontWeight:500}}>
+                        <a href={`/students/${r.student.id}`}
+                          style={{ color:'var(--text-primary)', textDecoration:'none', fontWeight:500 }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--brand-primary)'}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'}
+                        >
+                          {r.student.firstName} {r.student.lastName}
+                        </a>
                       </td>
-                      <td className="px-5 py-3 text-center">
-                        {r.resultSummary?.grade ? <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs font-medium">{r.resultSummary.grade}</span> : '—'}
+                      <td style={{textAlign:'center',fontFamily:'var(--font-geist-mono)',fontWeight:600}}>
+                        {r.resultSummary?`${Number(r.resultSummary.total_marks)}/${Number(r.resultSummary.max_total)}`:'—'}
                       </td>
-                      <td className="px-5 py-3 text-center">
-                        {r.resultSummary ? (
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${r.resultSummary.is_pass ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                            {r.resultSummary.is_pass ? 'PASS' : 'FAIL'}
+                      <td>{r.resultSummary?<PctBar pct={Number(r.resultSummary.percentage)}/>:'—'}</td>
+                      <td style={{textAlign:'center'}}>
+                        {r.resultSummary?.grade?<span className="badge badge-blue" style={{fontWeight:700}}>{r.resultSummary.grade}</span>:'—'}
+                      </td>
+                      <td style={{textAlign:'center'}}>
+                        {r.resultSummary?(
+                          <span className={`badge ${r.resultSummary.is_pass?'badge-green':'badge-red'}`} style={{fontWeight:700}}>
+                            {r.resultSummary.is_pass?'PASS':'FAIL'}
                           </span>
-                        ) : <span className="text-gray-600 text-xs">Pending</span>}
+                        ):<span style={{fontSize:'11px',color:'var(--text-faint)'}}>Pending</span>}
                       </td>
-                      <td className="px-5 py-3 text-center">
-                        <button onClick={() => router.push(`/report-card?exam_id=${examId}&student_id=${r.student.id}`)} className="text-xs text-blue-400 hover:text-blue-300 transition-colors">View Card</button>
+                      <td style={{textAlign:'center'}}>
+                        <a href={`/report-card?exam_id=${examId}&student_id=${r.student.id}`} className="btn btn-ghost" style={{fontSize:'11px',padding:'3px 8px'}}>Report</a>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {pendingCount > 0 && (
-              <p className="text-amber-400 text-sm mt-3 text-center">{pendingCount} students have no results yet — click "Calculate Results" above.</p>
-            )}
-          </>
-        )}
-
-        {!results.length && examId && classId && (
-          <div className="text-center py-16">
-            <p className="text-gray-500 mb-3">No results found. Enter marks first, then calculate results.</p>
-            <button onClick={() => router.push(`/marks-entry?exam_id=${examId}`)} className="text-blue-400 text-sm hover:underline">Go to Marks Entry →</button>
           </div>
-        )}
-        {!examId && <p className="text-gray-500 text-center py-16">Select an exam to view results.</p>}
-      </main>
-    </div>
+        </>
+      )}
+    </AppLayout>
   );
 }
 
 export default function ResultsPage() {
-  return <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
-    <ResultsContent />
-  </Suspense>;
+  return (
+    <Suspense fallback={<div className="page-loading"><div className="spinner spinner-lg"/></div>}>
+      <ResultsContent/>
+    </Suspense>
+  );
 }

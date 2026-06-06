@@ -126,48 +126,74 @@ export const bulkEnterMarks = async (
     throw { status: 400, message: 'One or more exam subjects do not belong to this exam' };
   }
   const examSubjectMap = new Map(validExamSubjects.map(es => [es.id, es]));
-
-  return prisma.$transaction(async (tx) => {
-    const results = [];
-    for (const entry of entries) {
-      // Validate marks ≤ max_marks
-      const examSubject = examSubjectMap.get(entry.exam_subject_id);
-      if (!examSubject) continue;
-
-      const maxMarks = Number(examSubject.max_marks);
-      if (!entry.is_absent && entry.marks_obtained > maxMarks) {
-        throw { status: 400, message: `Marks ${entry.marks_obtained} exceeds max marks ${maxMarks} for subject` };
-      }
-      if (!entry.is_absent && entry.marks_obtained < 0) {
-        throw { status: 400, message: 'Marks cannot be negative' };
-      }
-
-      // Get student exam registration
-      const studentExam = await tx.studentExam.findFirst({
-        where: { student_id: entry.student_id, exam_id: examId, tenant_id: tenantId },
-      });
-      if (!studentExam) continue; // Skip unregistered students
-
-      const result = await tx.marksEntry.upsert({
-        where: { student_exam_id_exam_subject_id: { student_exam_id: studentExam.id, exam_subject_id: entry.exam_subject_id } },
-        create: {
-          tenant_id: tenantId,
-          student_exam_id: studentExam.id,
-          exam_subject_id: entry.exam_subject_id,
-          marks_obtained: entry.is_absent ? 0 : entry.marks_obtained,
-          is_absent: entry.is_absent ?? false,
-          remarks: entry.remarks || null,
-        },
-        update: {
-          marks_obtained: entry.is_absent ? 0 : entry.marks_obtained,
-          is_absent: entry.is_absent ?? false,
-          remarks: entry.remarks || null,
-        },
-      });
-      results.push(result);
-    }
-    return { count: results.length, entries: results };
+  // Batch-fetch ALL student exam registrations in ONE query (outside transaction)
+  const studentIds = [...new Set(entries.map(e => e.student_id))];
+  const studentExams = await prisma.studentExam.findMany({
+    where: { student_id: { in: studentIds }, exam_id: examId, tenant_id: tenantId },
   });
+  const studentExamMap = new Map(studentExams.map(se => [se.student_id, se]));
+
+  // Pre-validate and build upsert payloads BEFORE entering the transaction
+  const upsertPayloads: { studentExamId: string; examSubjectId: string; marks: number; isAbsent: boolean; remarks: string | null }[] = [];
+  for (const entry of entries) {
+    const examSubject = examSubjectMap.get(entry.exam_subject_id);
+    if (!examSubject) continue;
+
+    const studentExam = studentExamMap.get(entry.student_id);
+    if (!studentExam) continue; // Skip unregistered students
+
+    const maxMarks = Number(examSubject.max_marks);
+    const safeMarks = entry.is_absent ? 0 : (Number(entry.marks_obtained) || 0);
+    if (!entry.is_absent && safeMarks > maxMarks) {
+      throw { status: 400, message: `Marks ${safeMarks} exceeds max marks ${maxMarks} for subject` };
+    }
+    if (!entry.is_absent && safeMarks < 0) {
+      throw { status: 400, message: 'Marks cannot be negative' };
+    }
+
+    upsertPayloads.push({
+      studentExamId: studentExam.id,
+      examSubjectId: entry.exam_subject_id,
+      marks: safeMarks,
+      isAbsent: entry.is_absent ?? false,
+      remarks: entry.remarks || null,
+    });
+  }
+
+  if (upsertPayloads.length === 0) {
+    return { count: 0, entries: [] };
+  }
+
+  // Transaction only contains upserts — no findFirst lookups, much faster
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const results = [];
+      for (const p of upsertPayloads) {
+        const result = await tx.marksEntry.upsert({
+          where: { student_exam_id_exam_subject_id: { student_exam_id: p.studentExamId, exam_subject_id: p.examSubjectId } },
+          create: {
+            tenant_id: tenantId,
+            student_exam_id: p.studentExamId,
+            exam_subject_id: p.examSubjectId,
+            marks_obtained: p.marks,
+            is_absent: p.isAbsent,
+            remarks: p.remarks,
+          },
+          update: {
+            marks_obtained: p.marks,
+            is_absent: p.isAbsent,
+            remarks: p.remarks,
+          },
+        });
+        results.push(result);
+      }
+      return { count: results.length, entries: results };
+    }, { timeout: 30000 });
+  } catch (err: any) {
+    if (err.status) throw err;
+    console.error('[bulkEnterMarks] DB error:', err);
+    throw { status: 500, message: err.message || 'Failed to save marks' };
+  }
 };
 
 // ─── Get marks for a student in an exam ───
@@ -190,6 +216,64 @@ export const getStudentMarks = async (tenantId: string, studentId: string, examI
   });
   if (!studentExam) throw { status: 404, message: 'Student exam record not found' };
   return studentExam;
+};
+
+// ─── P2B: Batch marks retrieval for an entire class/section ───
+// Replaces N individual getStudentMarks calls with 1 query
+
+export const getBatchMarks = async (
+  tenantId: string, examId: string, classId: string, sectionId: string
+) => {
+  // Single query: all student exams + marks for this class/section/exam
+  const studentExams = await prisma.studentExam.findMany({
+    where: {
+      exam_id: examId,
+      class_id: classId,
+      section_id: sectionId,
+      tenant_id: tenantId,
+    },
+    include: {
+      student: { select: { id: true, firstName: true, lastName: true, roll_number: true } },
+      marksEntries: {
+        select: {
+          exam_subject_id: true,
+          marks_obtained: true,
+          is_absent: true,
+          remarks: true,
+        },
+      },
+    },
+    orderBy: { student: { firstName: 'asc' } },
+  });
+
+  // Shape as a map: student_id → marksEntries for easy frontend consumption
+  const marksByStudent: Record<string, {
+    student_id: string;
+    name: string;
+    roll: string | null;
+    registered: boolean;
+    marks: Record<string, { marks_obtained: number; is_absent: boolean; remarks: string | null }>;
+  }> = {};
+
+  for (const se of studentExams) {
+    const marksMap: Record<string, { marks_obtained: number; is_absent: boolean; remarks: string | null }> = {};
+    for (const me of se.marksEntries) {
+      marksMap[me.exam_subject_id] = {
+        marks_obtained: Number(me.marks_obtained),
+        is_absent: me.is_absent,
+        remarks: me.remarks,
+      };
+    }
+    marksByStudent[se.student.id] = {
+      student_id: se.student.id,
+      name: `${se.student.firstName} ${se.student.lastName}`,
+      roll: se.student.roll_number,
+      registered: true,
+      marks: marksMap,
+    };
+  }
+
+  return { examId, classId, sectionId, registeredCount: studentExams.length, marksByStudent };
 };
 
 // ─── Grade determination (uses configurable GradeScale) ───
@@ -411,3 +495,4 @@ export const upsertGradeScales = async (tenantId: string, scales: {
     )
   );
 };
+

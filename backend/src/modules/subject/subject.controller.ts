@@ -42,3 +42,15 @@ export const getSubjects = async (req: TenantRequest, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+// ─── P2A: GET /subjects/count ─── (lightweight dashboard endpoint)
+
+export const getSubjectCount = async (req: TenantRequest, res: Response) => {
+  try {
+    const count = await prisma.subject.count({ where: { tenant_id: req.tenantId! } });
+    res.status(200).json({ count });
+  } catch (error) {
+    console.error('Get subject count error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import {
   createExam, getExams, getExamById, updateExam,
   addExamSubjects, registerStudents,
-  bulkEnterMarks, getStudentMarks,
+  bulkEnterMarks, getStudentMarks, getBatchMarks,
   calculateResults, getClassResults, getStudentResult,
   generateReportCard,
   getGradeScales, upsertGradeScales,
@@ -28,6 +28,7 @@ router.post('/:id/register', rbacMiddleware(['Admin']), registerStudents);
 
 // ─── Marks Entry (Teacher can enter marks for their subjects) ───
 router.post('/:id/marks', rbacMiddleware(['Admin', 'Teacher']), bulkEnterMarks);
+router.get('/:id/marks/batch', getBatchMarks); // P2B: batch retrieval for class/section
 router.get('/:id/marks/student/:studentId', getStudentMarks);
 
 // ─── Results ───

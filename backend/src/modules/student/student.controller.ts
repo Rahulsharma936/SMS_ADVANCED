@@ -179,6 +179,83 @@ export const getStudentById = async (req: TenantRequest, res: Response) => {
 };
 
 // ─────────────────────────────────────────────
+// 3B. GET STUDENT ACADEMIC RECORDS (Exams + Marks + Results)
+// ─────────────────────────────────────────────
+
+export const getStudentAcademicRecords = async (req: TenantRequest, res: Response) => {
+  try {
+    const tenantId = req.tenantId!;
+    const studentId = req.params.id;
+
+    // Verify student exists
+    const student = await prisma.student.findFirst({
+      where: { id: studentId, tenant_id: tenantId, ...notDeleted },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    if (!student) { res.status(404).json({ error: 'Student not found' }); return; }
+
+    // Fetch all StudentExam records with full marks + results in one query
+    const studentExams = await prisma.studentExam.findMany({
+      where: { student_id: studentId, tenant_id: tenantId },
+      include: {
+        exam: {
+          select: { id: true, name: true, academic_year: true, start_date: true, end_date: true, status: true },
+        },
+        class: { select: { name: true } },
+        section: { select: { name: true } },
+        marksEntries: {
+          include: {
+            examSubject: {
+              include: { subject: { select: { id: true, name: true, code: true } } },
+            },
+          },
+        },
+        resultSummary: true,
+      },
+      orderBy: { exam: { created_at: 'desc' } },
+    });
+
+    // Shape the response for easy frontend consumption
+    const records = studentExams.map((se) => ({
+      studentExamId: se.id,
+      exam: se.exam,
+      class: se.class,
+      section: se.section,
+      subjects: se.marksEntries.map((me) => ({
+        examSubjectId: me.exam_subject_id,
+        subject: me.examSubject.subject.name,
+        subjectCode: me.examSubject.subject.code,
+        maxMarks: Number(me.examSubject.max_marks),
+        passingMarks: Number(me.examSubject.passing_marks),
+        marksObtained: Number(me.marks_obtained),
+        isAbsent: me.is_absent,
+        remarks: me.remarks,
+        percentage: Number(me.examSubject.max_marks) > 0
+          ? Math.round((Number(me.marks_obtained) / Number(me.examSubject.max_marks)) * 100)
+          : 0,
+        isPassed: !me.is_absent && Number(me.marks_obtained) >= Number(me.examSubject.passing_marks),
+      })),
+      result: se.resultSummary ? {
+        totalMarks: Number(se.resultSummary.total_marks),
+        maxTotal: Number(se.resultSummary.max_total),
+        percentage: Number(se.resultSummary.percentage),
+        grade: se.resultSummary.grade,
+        gradePoint: se.resultSummary.grade_point ? Number(se.resultSummary.grade_point) : null,
+        rankSection: se.resultSummary.rank_section,
+        rankClass: se.resultSummary.rank_class,
+        isPass: se.resultSummary.is_pass,
+        calculatedAt: se.resultSummary.calculated_at,
+      } : null,
+    }));
+
+    res.status(200).json({ studentId, records });
+  } catch (error) {
+    console.error('Get student academic records error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+// ─────────────────────────────────────────────
 // 4. UPDATE (PATCH)
 // ─────────────────────────────────────────────
 

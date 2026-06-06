@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
+import AppLayout from '@/components/AppLayout';
 
 interface ExamData {
   id: string; name: string; academic_year: string;
@@ -11,18 +12,19 @@ interface ExamData {
   _count: { studentExams: number };
 }
 
-const statusColor = (s: string) =>
-  s === 'published' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-  s === 'completed' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-  'bg-amber-500/20 text-amber-400 border-amber-500/30';
+const STATUS_CFG: Record<string, string> = { draft: 'badge-amber', published: 'badge-green', completed: 'badge-blue' };
+
+function FieldLabel({ c }: { c: React.ReactNode }) {
+  return <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '5px' }}>{c}</label>;
+}
 
 export default function ExamsPage() {
-  const [exams, setExams] = useState<ExamData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [exams,      setExams]      = useState<ExamData[]>([]);
+  const [loading,    setLoading]    = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', academic_year: '', start_date: '', end_date: '', status: 'draft' });
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState('');
+  const [form,       setForm]       = useState({ name: '', academic_year: '2025-2026', start_date: '', end_date: '', status: 'draft' });
+  const [creating,   setCreating]   = useState(false);
+  const [error,      setError]      = useState('');
   const router = useRouter();
 
   const loadExams = async () => {
@@ -30,8 +32,7 @@ export default function ExamsPage() {
     catch (e: any) { if (e.message?.includes('Unauthorized')) router.push('/login'); }
     finally { setLoading(false); }
   };
-
-  useEffect(() => { loadExams(); }, []);
+  useEffect(() => { loadExams(); }, [router]);
 
   const handleCreate = async () => {
     if (!form.name || !form.academic_year) { setError('Name and academic year are required'); return; }
@@ -39,126 +40,107 @@ export default function ExamsPage() {
     try {
       await fetchApi('/exams', { method: 'POST', data: form });
       setShowCreate(false);
-      setForm({ name: '', academic_year: '', start_date: '', end_date: '', status: 'draft' });
+      setForm({ name: '', academic_year: '2025-2026', start_date: '', end_date: '', status: 'draft' });
       loadExams();
     } catch (e: any) { setError(e.message); } finally { setCreating(false); }
   };
 
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="page-loading"><div className="spinner spinner-lg"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <nav className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <a href="/dashboard" className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">SMS Portal</a>
-          <div className="flex gap-4 text-sm">
-            <a href="/exams" className="text-blue-400 font-medium">Exams</a>
-            <a href="/marks-entry" className="text-gray-400 hover:text-white transition-colors">Marks Entry</a>
-            <a href="/results" className="text-gray-400 hover:text-white transition-colors">Results</a>
-            <a href="/report-card" className="text-gray-400 hover:text-white transition-colors">Report Card</a>
-            <a href="/dashboard" className="text-gray-400 hover:text-white transition-colors">Dashboard</a>
-          </div>
+    <AppLayout>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Examinations</h1>
+          <p className="page-subtitle">{exams.length} exam{exams.length !== 1 ? 's' : ''} · <a href="/marks-entry" style={{ color: 'var(--brand-primary)' }}>Marks Entry</a> · <a href="/results" style={{ color: 'var(--brand-primary)' }}>Results</a></p>
         </div>
-      </nav>
+        <button onClick={() => { setShowCreate(true); setError(''); }} className="btn btn-primary">
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.75}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Create Exam
+        </button>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Examinations</h1>
-            <p className="text-gray-500 mt-1">{exams.length} exams configured</p>
+      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)', marginBottom: '16px' }}>
+        {[{ s:'draft',color:'#fbbf24',l:'Draft'},{s:'published',color:'#4ade80',l:'Published'},{s:'completed',color:'#60a5fa',l:'Completed'}].map(c=>(
+          <div key={c.s} className="kpi-card">
+            <div className="kpi-card-value" style={{ color: c.color }}>{exams.filter(e=>e.status===c.s).length}</div>
+            <div className="kpi-card-label">{c.l}</div>
           </div>
-          <button onClick={() => setShowCreate(true)} className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-sm font-medium shadow-lg hover:shadow-blue-500/25 transition-all hover:scale-105">
-            + Create Exam
-          </button>
-        </div>
+        ))}
+      </div>
 
-        {/* Summary */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {['draft','published','completed'].map(s => (
-            <div key={s} className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
-              <p className={`text-3xl font-bold ${s==='published'?'text-emerald-400':s==='completed'?'text-blue-400':'text-amber-400'}`}>
-                {exams.filter(e => e.status === s).length}
-              </p>
-              <p className="text-xs text-gray-500 uppercase mt-1 capitalize">{s}</p>
-            </div>
-          ))}
+      {exams.length === 0 ? (
+        <div className="empty-state" style={{ minHeight:'40vh' }}>
+          <svg className="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.25}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <p className="empty-state-title">No exams yet</p>
+          <p className="empty-state-desc">Create your first exam to configure subjects and register students.</p>
+          <button onClick={()=>setShowCreate(true)} className="btn btn-primary">Create Exam</button>
         </div>
-
-        {/* Exam Cards */}
-        {exams.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
-            <p className="text-lg mb-2">No exams yet</p>
-            <button onClick={() => setShowCreate(true)} className="text-blue-400 hover:underline text-sm">Create your first exam</button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {exams.map(exam => (
-              <div key={exam.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/[0.07] transition-colors cursor-pointer group"
-                onClick={() => router.push(`/exams/${exam.id}`)}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg group-hover:text-blue-400 transition-colors">{exam.name}</h3>
-                    <p className="text-gray-500 text-sm">{exam.academic_year}</p>
+      ) : (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:'12px' }}>
+          {exams.map(exam => {
+            const maxTotal = exam.examSubjects.reduce((s,es)=>s+Number(es.max_marks),0);
+            return (
+              <div key={exam.id} className="card" style={{ padding:'16px 18px', cursor:'pointer' }} onClick={()=>router.push(`/exams/${exam.id}`)}>
+                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'10px' }}>
+                  <div style={{ flex:1, minWidth:0, marginRight:'8px' }}>
+                    <h3 style={{ fontWeight:600, fontSize:'14px', color:'var(--text-primary)', marginBottom:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{exam.name}</h3>
+                    <span style={{ fontSize:'11px', color:'var(--text-faint)', fontFamily:'var(--font-geist-mono)' }}>{exam.academic_year}</span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${statusColor(exam.status)}`}>{exam.status}</span>
+                  <span className={`badge ${STATUS_CFG[exam.status]??'badge-gray'}`} style={{ fontSize:'10px', flexShrink:0, textTransform:'capitalize' }}>{exam.status}</span>
                 </div>
-                <div className="space-y-2 text-sm text-gray-400">
-                  <div className="flex justify-between">
-                    <span>Subjects</span>
-                    <span className="text-purple-400 font-medium">{exam.examSubjects.length}</span>
+                {exam.start_date && (
+                  <div style={{ fontSize:'11px', color:'var(--text-faint)', marginBottom:'8px' }}>
+                    {new Date(exam.start_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}
+                    {exam.end_date && ` → ${new Date(exam.end_date).toLocaleDateString('en-IN',{day:'2-digit',month:'short'})}`}
                   </div>
-                  <div className="flex justify-between">
-                    <span>Students Registered</span>
-                    <span className="text-cyan-400 font-medium">{exam._count.studentExams}</span>
-                  </div>
-                  {exam.start_date && (
-                    <div className="flex justify-between">
-                      <span>Start</span>
-                      <span>{new Date(exam.start_date).toLocaleDateString()}</span>
-                    </div>
-                  )}
+                )}
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', color:'var(--text-secondary)', marginBottom:'10px' }}>
+                  <span><span style={{ color:'#a5b4fc', fontWeight:600 }}>{exam.examSubjects.length}</span> subjects · {maxTotal} marks</span>
+                  <span><span style={{ color:'#67e8f9', fontWeight:600 }}>{exam._count.studentExams}</span> students</span>
                 </div>
-                <div className="flex flex-wrap gap-1 mt-3">
-                  {exam.examSubjects.slice(0,3).map((es,i) => (
-                    <span key={i} className="px-2 py-0.5 bg-purple-500/15 text-purple-300 rounded text-xs">{es.subject.name}</span>
-                  ))}
-                  {exam.examSubjects.length > 3 && <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 rounded text-xs">+{exam.examSubjects.length-3}</span>}
+                {exam.examSubjects.length > 0 && (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:'4px', marginBottom:'10px' }}>
+                    {exam.examSubjects.slice(0,3).map((es,i)=><span key={i} className="badge badge-blue" style={{ fontSize:'10px' }}>{es.subject.name}</span>)}
+                    {exam.examSubjects.length>3 && <span className="badge badge-gray" style={{ fontSize:'10px' }}>+{exam.examSubjects.length-3}</span>}
+                  </div>
+                )}
+                <div style={{ display:'flex', gap:'6px', paddingTop:'10px', borderTop:'1px solid var(--border-subtle)' }}>
+                  <a href={`/marks-entry?exam_id=${exam.id}`} onClick={e=>e.stopPropagation()} className="btn btn-ghost" style={{ flex:1, justifyContent:'center', fontSize:'11px', padding:'5px' }}>Enter Marks</a>
+                  <a href={`/results?exam_id=${exam.id}`} onClick={e=>e.stopPropagation()} className="btn btn-ghost" style={{ flex:1, justifyContent:'center', fontSize:'11px', padding:'5px' }}>Results</a>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </main>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Create Modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCreate(false)}>
-          <div className="bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-5">Create Exam</h2>
-            {error && <p className="text-red-400 text-sm mb-3 bg-red-500/10 border border-red-500/20 p-2 rounded-lg">{error}</p>}
-            <div className="space-y-3">
-              <div><label className="text-xs text-gray-500 mb-1 block">Exam Name *</label>
-                <input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Midterm 2026" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" /></div>
-              <div><label className="text-xs text-gray-500 mb-1 block">Academic Year *</label>
-                <input value={form.academic_year} onChange={e => setForm({...form, academic_year: e.target.value})} placeholder="2025-2026" className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><label className="text-xs text-gray-500 mb-1 block">Start Date</label>
-                  <input type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm" style={{colorScheme:'dark'}} /></div>
-                <div><label className="text-xs text-gray-500 mb-1 block">End Date</label>
-                  <input type="date" value={form.end_date} onChange={e => setForm({...form, end_date: e.target.value})} className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm" style={{colorScheme:'dark'}} /></div>
-              </div>
-              <div><label className="text-xs text-gray-500 mb-1 block">Status</label>
-                <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} className="w-full bg-black/30 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm">
-                  <option value="draft">Draft</option><option value="published">Published</option>
-                </select></div>
+        <div className="modal-backdrop" onClick={()=>setShowCreate(false)}>
+          <div className="modal-box" style={{ maxWidth:'440px' }} onClick={e=>e.stopPropagation()}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'18px' }}>
+              <h2 style={{ fontSize:'15px', fontWeight:700 }}>Create Exam</h2>
+              <button onClick={()=>setShowCreate(false)} className="btn btn-ghost" style={{ padding:'4px 8px' }}>✕</button>
             </div>
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setShowCreate(false)} className="px-4 py-2 bg-white/5 rounded-lg text-sm">Cancel</button>
-              <button onClick={handleCreate} disabled={creating} className="px-4 py-2 bg-blue-600 rounded-lg text-sm disabled:opacity-50">{creating ? 'Creating...' : 'Create'}</button>
+            {error && <div className="alert alert-error" style={{ marginBottom:'12px' }}>{error}</div>}
+            <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+              <div><FieldLabel c="Exam Name *"/><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Midterm 2026" className="input" style={{ width:'100%' }}/></div>
+              <div><FieldLabel c="Academic Year *"/><input value={form.academic_year} onChange={e=>setForm({...form,academic_year:e.target.value})} placeholder="2025-2026" className="input" style={{ width:'100%' }}/></div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                <div><FieldLabel c="Start Date"/><input type="date" value={form.start_date} onChange={e=>setForm({...form,start_date:e.target.value})} className="input" style={{ width:'100%', colorScheme:'dark' }}/></div>
+                <div><FieldLabel c="End Date"/><input type="date" value={form.end_date} onChange={e=>setForm({...form,end_date:e.target.value})} className="input" style={{ width:'100%', colorScheme:'dark' }}/></div>
+              </div>
+              <div><FieldLabel c="Status"/><select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} className="input" style={{ width:'100%' }}><option value="draft">Draft</option><option value="published">Published</option></select></div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:'8px', marginTop:'18px', paddingTop:'14px', borderTop:'1px solid var(--border-subtle)' }}>
+              <button onClick={()=>setShowCreate(false)} className="btn btn-ghost">Cancel</button>
+              <button onClick={handleCreate} disabled={creating} className="btn btn-primary">
+                {creating?<><div className="spinner" style={{ width:'13px',height:'13px',borderWidth:'2px' }}/> Creating…</>:'Create Exam'}
+              </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </AppLayout>
   );
 }

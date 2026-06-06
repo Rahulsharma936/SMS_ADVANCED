@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
+import AppLayout from '@/components/AppLayout';
 
 interface ReportCardData {
   student: { firstName: string; lastName: string; admission_number: string; roll_number: string | null };
@@ -70,46 +71,46 @@ function ReportCardContent() {
 
   const handlePrint = () => { window.print(); };
 
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <div className="page-loading"><div className="spinner spinner-lg"/></div>;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <nav className="bg-white/5 backdrop-blur-md border-b border-white/10 sticky top-0 z-50 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <a href="/dashboard" className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">SMS Portal</a>
-          <div className="flex gap-4 text-sm">
-            <a href="/exams" className="text-gray-400 hover:text-white transition-colors">Exams</a>
-            <a href="/marks-entry" className="text-gray-400 hover:text-white transition-colors">Marks Entry</a>
-            <a href="/results" className="text-gray-400 hover:text-white transition-colors">Results</a>
-            <a href="/report-card" className="text-blue-400 font-medium">Report Card</a>
+    <AppLayout>
+      <div className="page-header print:hidden">
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:'6px', fontSize:'11px', color:'var(--text-muted)', marginBottom:'4px' }}>
+            <a href="/exams" style={{ color:'var(--text-muted)', textDecoration:'none' }}>Examinations</a>
+            <span style={{ color:'var(--text-faint)' }}>›</span>
+            <span>Report Card</span>
           </div>
+          <h1 className="page-title">Report Card</h1>
+          <p className="page-subtitle">Generate and print student report cards</p>
         </div>
-      </nav>
+        <a href="/results" className="btn btn-ghost" style={{ fontSize:'12px' }}>← Results</a>
+      </div>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div style={{ maxWidth:'860px' }}>
         {/* Selectors */}
-        <div className="print:hidden mb-8">
-          <h1 className="text-3xl font-bold mb-6">Report Card</h1>
-          {error && <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-3 rounded-xl mb-4 text-sm">{error}</div>}
+        <div className="print:hidden" style={{ marginBottom:'20px' }}>
+          {error && <div className="alert alert-error" style={{ marginBottom:"12px" }}>{error}</div>}
           <div className="flex flex-wrap gap-4 mb-4">
             <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Exam</label>
-              <select value={examId} onChange={e => setExamId(e.target.value)} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-52">
+              <select value={examId} onChange={e => setExamId(e.target.value)} className="input" style={{ width:"210px" }}>
                 <option value="">Select</option>{exams.map(e => <option key={e.id} value={e.id}>{e.name} ({e.academic_year})</option>)}
               </select></div>
             <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Class</label>
-              <select value={classId} onChange={e => { setClassId(e.target.value); setSectionId(''); setStudents([]); }} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-44">
+              <select value={classId} onChange={e => { setClassId(e.target.value); setSectionId(''); setStudents([]); }} className="input" style={{ width:"180px" }}>
                 <option value="">Select</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></div>
             {selectedClass && <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Section</label>
-              <select value={sectionId} onChange={e => { setSectionId(e.target.value); if (e.target.value) loadStudents(classId, e.target.value); }} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-36">
+              <select value={sectionId} onChange={e => { setSectionId(e.target.value); if (e.target.value) loadStudents(classId, e.target.value); }} className="input" style={{ width:"150px" }}>
                 <option value="">Select</option>{selectedClass.sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select></div>}
             {students.length > 0 && <div><label className="block text-xs text-gray-400 uppercase font-semibold mb-1.5">Student</label>
-              <select value={studentId} onChange={e => setStudentId(e.target.value)} className="bg-black/30 border border-gray-700 rounded-lg px-4 py-2.5 text-white text-sm w-52">
+              <select value={studentId} onChange={e => setStudentId(e.target.value)} className="input" style={{ width:"210px" }}>
                 <option value="">Select</option>{students.map(s => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} ({s.admission_number})</option>)}
               </select></div>}
           </div>
-          <button onClick={generateCard} disabled={generating || !examId || !studentId} className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-sm font-medium disabled:opacity-50 hover:shadow-lg transition-all">
+          <button onClick={generateCard} disabled={generating || !examId || !studentId} className="btn btn-primary">
             {generating ? 'Generating...' : 'Generate Report Card'}
           </button>
         </div>
@@ -206,13 +207,13 @@ function ReportCardContent() {
 
         {reportCard && (
           <div className="mt-4 flex justify-center print:hidden">
-            <button onClick={handlePrint} className="px-6 py-2.5 bg-white/10 border border-white/20 rounded-xl text-sm font-medium hover:bg-white/20 transition-all">
+            <button onClick={handlePrint} className="btn btn-secondary">
               🖨️ Print / Save as PDF
             </button>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
 

@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { TenantRequest } from '../../middlewares/tenant.middleware';
+import { prisma } from '../../prisma/client';
 import * as examService from './exam.service';
 
 const handle = (res: Response, err: any) => {
@@ -81,6 +82,18 @@ export const getStudentMarks = async (req: TenantRequest, res: Response) => {
   try {
     const data = await examService.getStudentMarks(req.tenantId!, req.params.studentId, req.params.id);
     res.status(200).json({ data });
+  } catch (err: any) { handle(res, err); }
+};
+
+// ─── P2B: GET /exams/:id/marks/batch?class_id=X&section_id=Y ───
+export const getBatchMarks = async (req: TenantRequest, res: Response) => {
+  try {
+    const { class_id, section_id } = req.query;
+    if (!class_id || !section_id) {
+      res.status(400).json({ error: 'class_id and section_id are required' }); return;
+    }
+    const data = await examService.getBatchMarks(req.tenantId!, req.params.id, class_id as string, section_id as string);
+    res.status(200).json(data);
   } catch (err: any) { handle(res, err); }
 };
 
