@@ -144,7 +144,7 @@ export default function ProfilePage() {
                   {row.mono && row.value !== '—' && (
                     <button onClick={() => copy(row.value, row.key)} title="Copy to clipboard"
                       style={{
-                        background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px',
+                        border: 'none', cursor: 'pointer', padding: '2px 6px',
                         fontSize: '11px', color: copied === row.key ? '#4ade80' : 'var(--text-faint)',
                         borderRadius: '3px', background: 'var(--bg-overlay)', flexShrink: 0,
                         transition: 'color var(--transition-fast)',
