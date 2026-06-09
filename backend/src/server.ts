@@ -4,6 +4,11 @@ import compression from 'compression';
 import dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
+import dns from 'dns';
+
+// Fix for Node v17+ IPv6 DNS resolution issues with Supabase Pooler
+dns.setDefaultResultOrder('ipv4first');
+
 import { Server as SocketIOServer } from 'socket.io';
 
 // Phase 1 modules
