@@ -10,6 +10,7 @@ import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first');
 
 import { Server as SocketIOServer } from 'socket.io';
+import { prisma } from './prisma/client';
 
 // Phase 1 modules
 import tenantRoutes from './modules/tenant/tenant.routes';
@@ -119,8 +120,14 @@ app.use('/api/communication', communicationRoutes);
 // ─── Phase 11: Chat System ────────────────────────────────────────────────────
 app.use('/api/chat', chatRoutes);
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'OK', message: 'SMS Backend Phase 1-11 running', socket: 'enabled' });
+app.get('/health', async (_req, res) => {
+  try {
+    // Ping the database to keep Supabase from pausing due to inactivity
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'OK', db: 'connected', message: 'SMS Backend Phase 1-11 running', socket: 'enabled' });
+  } catch (error) {
+    res.status(500).json({ status: 'ERROR', db: 'disconnected', message: 'Database connection failed' });
+  }
 });
 
 // ─── Start HTTP + WebSocket server ───────────────────────────────────────────
